@@ -206,8 +206,13 @@ def penaltyFun(x, y,  fun , beta, w = 1,):
 def penaltyFun_wrapper(x, y, fun, w = 1):
     return lambda beta: penaltyFun(x, y, fun , beta, w = w )
 
+
+'''
+WARNING 6/14/2016: this is not be bug-free, somehow RMSE = 0??!!
+'''
 def opt_selection( beta_size, minimized, penalty, n = 25 ):
-    betas = np.random.rand(n,beta_size) + 10 * np.random.rand(1,1)
+    betas = np.random.rand(n,beta_size) + 3
     results = [ minimized(y).x for y in betas]
     RMSE = [penalty(x) for x in results]
+    RMSE[RMSE==0] = 1 # current way of dealing with bug...
     return results[ np.argmin(RMSE)]
