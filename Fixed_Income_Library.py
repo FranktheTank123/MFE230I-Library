@@ -198,10 +198,10 @@ def Svensson ( T, beta ):
 '''
 Optimization-related functions below
 '''
-# assume a regular RMSE penalty function
-def penaltyFun(x, y, fun , beta ):
-    return np.power( y - fun( x , beta), 2 ).sum()
+# assume a regular RMSE penalty function with
+def penaltyFun(x, y,  fun , beta, w = 1,):
+    return np.multiply(np.power( (y - fun( x , beta)) , 2 ) , w).sum()
 
 # a wrapper used for minimizing beta's
-def penaltyFun_wrapper(x, y, fun):
-    return lambda beta: penaltyFun(x, y, fun , beta )
+def penaltyFun_wrapper(x, y, fun, w = 1):
+    return lambda beta: penaltyFun(x, y, fun , beta, w = w )
