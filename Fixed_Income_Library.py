@@ -205,3 +205,9 @@ def penaltyFun(x, y,  fun , beta, w = 1,):
 # a wrapper used for minimizing beta's
 def penaltyFun_wrapper(x, y, fun, w = 1):
     return lambda beta: penaltyFun(x, y, fun , beta, w = w )
+
+def opt_selection( beta_size, minimized, penalty, n = 25 ):
+    betas = np.random.rand(n,beta_size) + 10 * np.random.rand(1,1)
+    results = [ minimized(y).x for y in betas]
+    RMSE = [penalty(x) for x in results]
+    return results[ np.argmin(RMSE)]
