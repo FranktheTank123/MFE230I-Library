@@ -63,6 +63,7 @@ def linInter(RawRate, RawT, T_):
     except:
         return float('nan')
 
+
 # regular step interpolation
 def stepInter(RawRate, RawT, T_ ):
     try:
@@ -90,8 +91,6 @@ def spotToZ(rate, T, t = 0, n = 1, isCts = False):
         result = np.exp(-rate*(T-t))    #if this causes error, switch to the line above
     else:      ## if descrete
         result = np.power((1 + rate / n),(-n*(T - t)))
-
-    result[T==t] = 1 # edge case when T = t, Z = 1
     return result
 
 
@@ -128,10 +127,6 @@ def getParRate (T, getZ, freq, t = 0, T_fwd = 0 ):
     n[ n < 0 ] = 0
 
     coupon_date = [ x[0] - (np.arange(1, x[1]+1)-1)/2.0 for x in zip(T, n)]
-    #if T_fwd == 0:
-    #    return freq * (1 - getZ(T)) / [getZ(x).sum() for x in coupon_date]
-    #else:
-    #    return freq * (1 - getZ(T)/getZ(np.array([T_fwd]))) / [(getZ(x)/getZ(np.array([T_fwd]))).sum() for x in coupon_date]
     return freq * (1 - getZ(T)/getZ(np.array([T_fwd]))) / [(getZ(x)/getZ(np.array([T_fwd]))).sum() for x in coupon_date]
 
 
