@@ -86,6 +86,8 @@ def ctsToDiscrete(cts, n = 1):
 
 # transfer the spot rate to discount rate
 def spotToZ(rate, T, t = 0, n = 1, isCts = False):
+
+
     if isCts:  ## if continuous
         #result =  np.exp(- np.multiply(rate,(T - t)))
         result = np.exp(-rate*(T-t))    #if this causes error, switch to the line above
@@ -159,6 +161,8 @@ def fiveFactorDisc( beta, X ):
 
 # Tailored function for Q8 to generate the basis vector
 def power_5(data):
+    if (np.shape(data) == ()): # dealing with edge case, when data is not a integer
+        data = np.asarray([data])
     return pd.DataFrame({'T' :data,
                   'T^2': np.power(data,2),
                   'T^3': np.power(data,3),
