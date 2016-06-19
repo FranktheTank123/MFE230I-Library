@@ -127,9 +127,9 @@ class bond:
                                     np.power( 1 + self.YTM/self.freq , -self.freq * self.coupon_date)).sum() / self.price
                                     + self.coupon_date[0] * self.par * np.power( 1 + self.YTM/self.freq , -self.freq * self.coupon_date[0]) / self.price )
             self.Mod_duration = self.Mac_duration / (1 + self.YTM/self.freq)
-            self.convexity =  ((self.coupon/self.freq * (self.coupon_date * (self.coupon_date+1/self.freq) *
+            self.convexity =  ((self.coupon/self.freq * (self.coupon_date * (self.coupon_date+1./self.freq) *
                               np.power(1+self.YTM/self.freq, -self.freq* self.coupon_date)).sum()
-                              + self.par * self.coupon_date[0] * (self.coupon_date[0]+1/self.freq) *np.power(1+self.YTM/self.freq, -self.freq* self.coupon_date[0]) )
+                              + self.par * self.coupon_date[0] * (self.coupon_date[0]+1./self.freq) *np.power(1+self.YTM/self.freq, -self.freq* self.coupon_date[0]) )
                               * np.power( 1 + self.YTM /self.freq , -2 ) / self.price)
         # DV 01 is uniform
         self.DD = self.Mod_duration * self.price / 100
