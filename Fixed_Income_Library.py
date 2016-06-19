@@ -95,15 +95,18 @@ def spotToZ(rate, T, t = 0, n = 1, isCts = False):
         result = np.power((1 + rate / n),(-n*(T - t)))
     return result
 
+'''
+WARNING 6/18/2016: big bug fixed...
+'''
 
 # transfer the discount rate to spot rate
 def zToSpot(Z, T, t = 0, n = 1, isCts = False):
     if isCts: ## if continuous
         result = -np.log(Z) / (T - t)
     else:     ## if descrete
-        result = n * (np.power(Z, -1/(n*(T - t))) - 1)
+        result = n * (np.power(Z, -1./(n*(T - t))) - 1)
 
-    result[T==t] = 0 # edge case when T = t, rate = 0
+    #result[T==t] = 0 # edge case when T = t, rate = 0
     return result
 
 

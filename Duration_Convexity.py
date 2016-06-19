@@ -29,12 +29,35 @@ class market:
     def __init__(self, function, fun_type = 'Z'):
         if (fun_type == 'Z'):
             self.get_Z = lambda T : function( T )
-            self.get_spot = lambda T, n = 2, t = 0: fi.zToSpot( self.get_Z(T), T, t = t, n = n)
+            # for back-up
+            self.ori_get_Z = lambda T : function( T )
+
+            self.get_spot = lambda T, n = 2, t = 0: fi.zToSpot( self.ori_get_Z(T), T, t = t, n = n)
+            # for back-up
+            self.ori_get_spot = lambda T, n = 2, t = 0: fi.zToSpot( self.ori_get_Z(T), T, t = t, n = n)
+
+
         elif(fun_type == 'S'):
             self.get_spot = lambda T, n = 2 : function( T, n )
-            self.get_Z = lambda T, n = 2, t = 0 : fi.spotToZ(self.get_spot(T), T, t = t, n = n )
+            # for back-up
+            self.ori_get_spot = lambda T, n = 2 : function( T, n )
+
+            self.get_Z = lambda T, n = 2, t = 0 : fi.spotToZ(self.ori_get_spot(T,n), T, t = t, n = n )
+            # for back-up
+            self.ori_get_Z = lambda T, n = 2, t = 0 : fi.spotToZ(self.ori_get_spot(T,n), T, t = t, n = n )
         else:
             raise Exception('unkown input function type')
+
+
+    def spot_shift(self, shift):
+        self.get_spot = lambda T, n = 2 : self.ori_get_spot(T,n) + shift
+        self.get_Z = lambda T, n = 2, t = 0 : fi.spotToZ(self.ori_get_spot(T,n)+shift, T, t = t, n = n )
+
+    def reset(self):
+        self.get_spot = self.ori_get_spot
+        self.get_Z = self.ori_get_Z
+
+
 
 
 '''
@@ -64,6 +87,7 @@ class bond:
         self.coupon = (self.freq * (self.price - self.par * market.get_Z( self.coupon_date[0] ) ) /
                         market.get_Z( self.coupon_date ).sum())[0]### note: [0] is that we want coupon to be a number
 
+
     def set_price(self, market):
         self.price = (self.coupon/self.freq * market.get_Z( self.coupon_date ).sum() + self.par * market.get_Z( self.coupon_date[0]))[0]
 
@@ -90,7 +114,7 @@ class bond:
                                     np.exp(-self.YTM * self.coupon_date)).sum() / self.price
                                     + self.coupon_date[0] * self.par * np.exp(-self.YTM * self.coupon_date[0]) / self.price )
             self.Mod_duration = self.Mac_duration
-            self.convextiy = ( (np.power(self.coupon_date,2) * self.coupon / self.freq *
+            self.convexity = ( (np.power(self.coupon_date,2) * self.coupon / self.freq *
                                 np.exp(-self.YTM * self.coupon_date) ).sum() + np.power(self.coupon_date[0],2)*self.par * np.exp(-self.YTM * self.coupon_date[0])
                                 )/ self.price
 
@@ -99,9 +123,13 @@ class bond:
                                     np.power( 1 + self.YTM/self.freq , -self.freq * self.coupon_date)).sum() / self.price
                                     + self.coupon_date[0] * self.par * np.power( 1 + self.YTM/self.freq , -self.freq * self.coupon_date[0]) / self.price )
             self.Mod_duration = self.Mac_duration / (1 + self.YTM/self.freq)
-            self.convextiy =  ((self.coupon/self.freq * (self.coupon_date * (self.coupon_date+1/self.freq) *
+            self.convexity =  ((self.coupon/self.freq * (self.coupon_date * (self.coupon_date+1/self.freq) *
                               np.power(1+self.YTM/self.freq, -self.freq* self.coupon_date)).sum()
                               + self.par * self.coupon_date[0] * (self.coupon_date[0]+1/self.freq) *np.power(1+self.YTM/self.freq, -self.freq* self.coupon_date[0]) )
                               * np.power( 1 + self.YTM /self.freq , -2 ) / self.price)
         # DV 01 is uniform
-        self.DV01 = self.Mod_duration * self.price / 10000
+        self.DD = self.Mod_duration * self.price / 100
+        self.DV01 = self.DD / 100
+
+    def approx_shock(self, shock, c_adj = False):
+            return -self.Mac_duration*shock + c_adj * self.convexity * np.power(shock,2) / 2
