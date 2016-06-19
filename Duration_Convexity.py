@@ -132,4 +132,4 @@ class bond:
         self.DV01 = self.DD / 100
 
     def approx_shock(self, shock, c_adj = False):
-            return -self.Mac_duration*shock + c_adj * self.convexity * np.power(shock,2) / 2
+            return  (-self.Mac_duration*shock + c_adj * self.convexity * np.power(shock,2) / 2 ) * self.price
