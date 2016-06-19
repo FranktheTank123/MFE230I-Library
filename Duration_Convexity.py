@@ -1,7 +1,11 @@
 '''
 This library contains duration- and convexity-related functions
 
+
+
 Modification log:
+
+6/18/2016 - wrapping up the classes
 
 6/17/2016 - Initiation of the script. I think it would be benefitial to have a bond
 class to deal with different features OOP seems to be helpful in this case
@@ -131,5 +135,8 @@ class bond:
         self.DD = self.Mod_duration * self.price / 100
         self.DV01 = self.DD / 100
 
+    '''
+    duration (or convexity) approximation when you have a shock
+    '''
     def approx_shock(self, shock, c_adj = False):
             return  (-self.Mac_duration*shock + c_adj * self.convexity * np.power(shock,2) / 2 ) * self.price
