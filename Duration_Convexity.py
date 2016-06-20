@@ -68,12 +68,12 @@ class market:
 The bond class.
 '''
 class bond:
-    def __init__(self, maturity, price = 100, par = 100, coupon = 0, freq = 2):
+    def __init__(self, maturity, price = 100, par = 100, coupon_rate = 0, freq = 2):
         self.price = price
-        self.coupon = coupon # this is dollar coupon
         self.maturity = maturity
         self.freq = freq
         self.par = par
+        self.coupon = coupon_rate * self.par  # this is dollar coupon
         self.payment_count = np.ceil( freq * self.maturity ) # how may coupon payment do we pay
                                                  # we use the ceiling function to make sure the coupon
                                                  # is always paid at T
@@ -82,7 +82,8 @@ class bond:
         note: coupon_date is in descending order e.g. [2, 1, 1.5, 0.5] (0 does not count)
         '''
         self.coupon_date = np.array(self.maturity - (np.arange(1, self.payment_count+1)-1)/2.0)
-
+        #self.cash_flow = np.ones(self.coupon_date.size) * self.coupon/self.freq*self.par
+        #self.cash_flow[0] += self.par
     # we can backup the coupon rate using the market curve and price
     '''
     note: the coupon rate is quoted annually
@@ -90,7 +91,6 @@ class bond:
     def set_coupon(self, market):
         self.coupon = (self.freq * (self.price - self.par * market.get_Z( self.coupon_date[0] ) ) /
                         market.get_Z( self.coupon_date ).sum())[0]### note: [0] is that we want coupon to be a number
-
 
     def set_price(self, market):
         self.price = (self.coupon/self.freq * market.get_Z( self.coupon_date ).sum() + self.par * market.get_Z( self.coupon_date[0]))[0]
@@ -139,4 +139,4 @@ class bond:
     duration (or convexity) approximation when you have a shock
     '''
     def approx_shock(self, shock, c_adj = False):
-            return  (-self.Mac_duration*shock + c_adj * self.convexity * np.power(shock,2) / 2 ) * self.price
+            return  (-self.Mod_duration*shock + c_adj * self.convexity * np.power(shock,2) / 2 ) * self.price
