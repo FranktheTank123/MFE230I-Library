@@ -16,7 +16,6 @@ import pandas as pd
 import numpy as np
 import scipy as sp
 import Fixed_Income_Library as fi
-fi = reload(fi)
 
 
 
