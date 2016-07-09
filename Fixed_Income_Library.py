@@ -108,6 +108,19 @@ def zcbYTMtoPrice(ytm, T, par = 100, t = 0, n = 1, isCts = False):
     '''
     return spotToZ(ytm, T, t = t, n = n, isCts = isCts) * par
 
+def calAnnuityPayment(T, r, par = 100, n = 1, isCts = False):
+    '''
+    calculate each payment of a self-amortization loan with equal payment
+    '''
+    if (T < n):
+        raise Exception('Input period T={}, smaller than smallest payment step={}'.format(T,n))
+
+    return par / spotToZ(r, np.arange(n, T+n, n), n = n, isCts = isCts).sum()
+
+def calAnnuityValue(T, r, payment, n = 1, isCts = False):
+    return spotToZ(r, np.arange(n, T+n, n), n = n, isCts = isCts).sum() * payment
+
+
 
 def spotToZ(rate, T, t = 0, n = 1, isCts = False):
     '''
