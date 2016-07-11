@@ -111,11 +111,22 @@ def zcbYTMtoPrice(ytm, T, par = 100, t = 0, n = 1, isCts = False):
 def calAnnuityPayment(T, r, par = 100, n = 1, isCts = False):
     '''
     calculate each payment of a self-amortization loan with equal payment
+    the return is a tuple of
+    (annuity, priciple payments, initerest payments)
     '''
     if (T < n):
         raise Exception('Input period T={}, smaller than smallest payment step={}'.format(T,n))
 
-    return par / spotToZ(r, np.arange(n, T+n, n), n = n, isCts = isCts).sum()
+    each_pay_ = par / spotToZ(r, np.arange(n, T+n, n), n = n, isCts = isCts).sum()
+
+    principle_ = np.repeat(each_pay_, T)
+    interest_ = np.zeros(T)
+    for t_ in range(T):
+        interest_[t_] = par * r
+        principle_[t_] = each_pay_ - interest_[t_]
+        par -= principle_[t_]
+
+    return (each_pay_, principle_, interest_)
 
 def calAnnuityValue(T, r, payment, n = 1, isCts = False):
     return spotToZ(r, np.arange(n, T+n, n), n = n, isCts = isCts).sum() * payment
