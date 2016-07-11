@@ -26,7 +26,7 @@ class hoLeeTree:
         '''
         Initiation parameters -
         sig:    the constant volatility should be pre-defined
-        T:      total level of trees
+        T:      total time of trees
         dt:     each time step
         q:      the risk-neutual probability, assume to be 0.5 by default
         '''
@@ -103,7 +103,6 @@ class hoLeeTree:
                         np.array([ (t_-2*x) * self.sig for x in range(t_ + 1)])
         self.IRtree = tree_
 
-
 class bdtTree:
     '''
     the class will construct a BDT tree
@@ -111,7 +110,7 @@ class bdtTree:
     def __init__(self, T, dt = 1, q = 0.5):
         '''
         Initiation parameters -
-        T:      total level of trees
+        T:      total time of trees
         dt:     each time step
         q:      the risk-neutual probability, assume to be 0.5 by default
         '''
@@ -137,19 +136,19 @@ class bdtTree:
         sigs = self.sigs
         q = self.q
 
-        prices_pred_ = np.zeros(T/dt)
-
+        prices_pred_ = np.zeros(T/dt - 1)
+        # prices_pred_ = np.zeros(T/dt)
         #print("drifts size =", len(drifts))
         #print("sigs size=",len(sigs))
 
-        for (ind_, time_) in  enumerate(range(1, int(T/dt) + 1)): # time_ = 1, 2, 3, ..., T
+        for (ind_, time_) in  enumerate(range(1, int(T/dt))): # time_ = 1, 2, 3, ..., T-1
             #print(ind_, time_)
             ## the last step, temp_price_ will be a 1xn+1 vector
             temp_price_ = np.repeat( 1, time_+1)
             ## trace back the tree until it hits the first period
             while( time_ > 0):
                 temp_price_ = (q*temp_price_[:-1] + (1-q)*temp_price_[1:]) / ( 1 + dt * \
-                         np.exp(drifts[:time_].sum()) * np.exp([ 2* x * sigs[time_-1] * (dt**0.5) for x in range(time_ -1 ,-1,-1)]))
+                        drifts[time_-1]*np.exp([ 2* x * sigs[time_-1] * (dt**0.5) for x in range( 0 ,-time_,-1)]))
                 time_ -= 1
             ## append the results
             prices_pred_[ ind_] = temp_price_[0]
@@ -169,20 +168,21 @@ class bdtTree:
         method:         the optimization method of the cost function
         options:        used for minimize function
         '''
-        if (len(prices) != self.T/self.dt):
-            raise Exception("Tree size={}, while prices size={}".format(self.T/self.dt, len(prices)))
+        if (len(prices)+1 != self.T/self.dt):
+            raise Exception("Tree size={}, while prices size+1={}".format(self.T/self.dt, len(prices)+1 ))
 
-        if( len(drift_init) != len(self.drifts)):
-            raise Exception("input drift size={}, should be {}".format(len(drift_init),len(self.drifts)))
+        #if( len(drift_init) != len(self.drifts)):
+        #    raise Exception("input drift size={}, should be {}".format(len(drift_init),len(self.drifts)))
 
-        self.sigs = np.append(0,sigs[:-1])
+        self.sigs = np.append(0,sigs)
+        r0_ = fi.zToSpot(prices[0],self.dt,n=1./self.dt)
 
-        getDriftPrice_wrapper = lambda x: ((self.getDriftPrice(x) - prices) ** 2).sum()
+        getDriftPrice_wrapper = lambda x, r0=r0_: ((self.getDriftPrice( np.append(r0,x)) - prices) ** 2).sum()
 
         results_  = minimize( getDriftPrice_wrapper, drift_init
                             , method = method, options = options)
         #self.para = results_.x
-        self.drifts = results_.x
+        self.drifts = np.append(r0_,results_.x)
         #self.sigs = np.append(0,self.para[self.T/self.dt:])
 
 
@@ -192,13 +192,163 @@ class bdtTree:
         '''
 
         tree_ = np.repeat(np.nan,(self.T/self.dt)**2).reshape((self.T/self.dt),(self.T/self.dt))
-        for t_ in range(1, int(self.T/self.dt) + 1):
-            tree_[:t_, t_-1] = np.exp(self.drifts[:t_].sum()) * \
-                np.exp([ 2* x * self.dt**0.5 * self.sigs[t_-1] for x in range(t_-1,-1,-1)])
+        for t_ in range(1, int(self.T/self.dt) + 1): #t_ = 1, 2,
+            tree_[:t_, t_-1] =  self.drifts[t_-1] * \
+                np.exp([ 2* x * self.dt**0.5 * self.sigs[t_-1] for x in range(0,-t_,-1)])
+                #np.exp([ 2* x * self.dt**0.5 * self.sigs[t_-1] for x in range(t_-1,-1,-1)])
 
         self.IRtree = tree_
 
+class hullWhiteTree:
+    '''
+    the class will construct a HullWhite tree
+    '''
+    def __init__(self, N, K, sig, dt = 0.5):
+        '''
+        Initiation parameters -
+        N:      total steps of trees
+        K:      Kappa, mean reversion factor
+        sig:    vol
+        dt:     each time step
+        '''
 
+        self.dt = dt
+        self.N = N
+        self.K = K
+        self.sig = sig
+        self.M = (np.exp(-K*dt)-1)
+        self.V = sig**2/2/K * (1-np.exp(-2*K*dt))
+        self.dr = (3*self.V)**0.5
+        self.j_max = int(np.ceil(-0.184/self.M))
+
+        ## initialize the 2*j_max+1 by N IR tree
+        #self.IRtree = np.repeat(np.nan,(2*self.j_max+1)*N ).reshape( 2*self.j_max+1, N )
+        ## initialize the 2*j_max+1 by 3 q_table
+        self.q_table = np.repeat(np.nan,(2*self.j_max+1)*3 ).reshape( 2*self.j_max+1, 3 )
+        for (i,j) in enumerate(range(self.j_max,-self.j_max-1,-1)):
+            if(-j>=self.j_max): ## type B
+                u_temp_ = 1./6 + ((j*self.M)**2 - j*self.M )/2.
+                m_temp_ = -1./3 - (j*self.M)**2 + 2*j*self.M
+                d_temp_ = 7./6 + ((j*self.M)**2 - 3*j*self.M )/2.
+            elif(j>=self.j_max): ## type C
+                u_temp_ = 7./6 + ((j*self.M)**2 + 3*j*self.M )/2.
+                m_temp_ = -1./3 - (j*self.M)**2 - 2*j*self.M
+                d_temp_ = 1./6 + ((j*self.M)**2 + j*self.M )/2.
+            else:
+                u_temp_ = 1./6 + ((j*self.M)**2 + j*self.M )/2.
+                m_temp_ = 2./3 - (j*self.M)**2
+                d_temp_ = 1./6 + ((j*self.M)**2 - j*self.M )/2.
+            self.q_table[i] = [u_temp_,m_temp_,d_temp_]
+
+        self.drifts = np.repeat(0.1, self.N)
+
+
+    def getDriftPrice( self, drifts_input ):
+        '''
+        ##para: a (T+T-1)x1 vector indicate the drift&sig at each level of the tree
+        ##will return a Tx1 price ( assume par = 1) vector, using the given drifts
+        '''
+        drifts = drifts_input
+        N = self.N
+        dt = self.dt
+        sig = self.sig
+        q_table = self.q_table
+        j_max = self.j_max
+        dr = self.dr
+
+        if (len(drifts) != N):
+            raise Exception("drifts size={},should be {}".format(len(drifts), N))
+
+
+        prices_pred_ = np.zeros(N)
+
+        #print("drifts size =", len(drifts))
+        #print("sigs size=",len(sigs))
+
+        for (ind_, time_) in  enumerate(range(1, N + 1)): # time_ = 1, 2, 3, ..., N
+            #print(ind_, time_)
+            ## the last step, temp_price_ will be a 1xn+1 vector
+            temp_price_ = np.repeat( 1., 2*j_max+1)
+            ## trace back the tree until it hits the first period
+            while( time_ > j_max): ## the case when still 2*j_max+1 nodes
+                new_price_ = np.repeat( 1., 2*j_max+1) ## initialization
+                new_price_[0] = (q_table[0,:] * temp_price_[:3]).sum()
+                new_price_[-1] =  (q_table[-1,:] * temp_price_[-3:]).sum()
+                for i in range(1, 2*j_max): ## optimize later
+                    #print(i,2*j_max+1,temp_price_[i-1:i+2])
+                    new_price_[i] = (q_table[i,:] * temp_price_[i-1:i+2]).sum()
+
+                temp_price_ = new_price_ * np.exp(-(drifts[:time_].sum()+ dr*np.arange(j_max,-j_max-1,-1))*dt)
+                time_ -= 1
+
+            reduce_=1
+            while( time_>0): ## now nodes decrease 2 per steps
+                new_price_ = temp_price_[1:-1]
+                for (i,_) in enumerate(new_price_):
+                    new_price_[i] = (q_table[reduce_+i,:] * temp_price_[i:i+3]).sum()
+                temp_price_ = new_price_ * np.exp(-(drifts[:time_].sum()+ dr*np.arange(j_max-reduce_,-j_max+reduce_-1,-1))*dt)
+                reduce_ += 1
+                time_ -= 1
+            ## append the results
+            prices_pred_[ ind_] = temp_price_[0]
+
+        return prices_pred_
+
+
+    def calibrateDrift(self, prices, drift_init, method = 'nelder-mead'
+                        , options = {'xtol': 1e-8, 'disp': True} ):
+        '''
+        Calibrate the dirft vector using the market ZCB prices (assume no coupon payment here)
+
+        Parameters --
+        prices:         normalized to per dollar
+        sigs:           volatility of the prices
+        drift_init:     initial value to optimize
+        method:         the optimization method of the cost function
+        options:        used for minimize function
+        '''
+        if (len(prices) != self.N):
+            raise Exception("Tree size={}, while prices size={}".format(self.N, len(prices)))
+        if( len(drift_init) != len(self.drifts)-1):
+            raise Exception("input drift size={}, should be {}".format(len(drift_init),len(self.drifts)-1))
+
+        r0_ = -np.log(prices[0])/self.dt
+        ## a wrapper
+        getDriftPrice_wrapper = lambda x, r0 = r0_: ((self.getDriftPrice(np.append(r0_,x)) - prices) ** 2).sum()
+        #getDriftPrice_wrapper1 = lambda x, r0 = r0_: (self.getDriftPrice(x, r0 = r0_) - prices)[1:]
+        results_  = minimize( getDriftPrice_wrapper, drift_init
+                            , method = method, options = options)
+
+        self.drifts = np.append(r0_,results_.x)
+
+
+
+    def plotIRTree(self):
+        '''
+        generate a N x N upper-triangle matrix, representing the tree of the IR
+        '''
+        N = self.N
+        dt = self.dt
+        sig = self.sig
+        q_table = self.q_table
+        j_max = self.j_max
+        dr = self.dr
+        drifts = self.drifts
+
+        tree_ = np.repeat(np.nan,(2*j_max+1)*N ).reshape( 2*j_max+1, N )
+
+        reduce_ = 1
+        for i in range(N-1, -1, -1):
+            if(i >= j_max):
+                tree_[:,i] = drifts[:i+1].sum()+ dr * np.arange(j_max,-j_max-1,-1)
+                i -= 1
+            else:
+                #print(reduce_)
+                tree_[reduce_:-reduce_,i] = drifts[:i+1].sum()+ dr * np.arange(j_max-reduce_,-j_max+reduce_-1,-1)
+                i -= 1
+                reduce_ += 1
+
+        self.IRtree = tree_
 
 def irTreeToPayoffTree( Tree, get_cash_flow, get_curr_price = lambda T, p: (p, False) ):
     '''
