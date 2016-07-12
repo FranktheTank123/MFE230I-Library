@@ -114,15 +114,16 @@ def calAnnuityPayment(T, r, par = 100, n = 1, isCts = False):
     the return is a tuple of
     (annuity, priciple payments, initerest payments)
     '''
-    if (T < n):
+    if (T < 1./n):
         raise Exception('Input period T={}, smaller than smallest payment step={}'.format(T,n))
 
+    N = int(T*n)
     each_pay_ = par / spotToZ(r, np.arange(1./n, T+1./n, 1./n), n = n, isCts = isCts).sum()
 
-    principle_ = np.repeat(each_pay_, T*n)
-    interest_ = np.zeros(T*n)
-    for t_ in range(T*n):
-        interest_[t_] = par * r/nz
+    principle_ = np.repeat(each_pay_, N)
+    interest_ = np.zeros(N)
+    for t_ in range(N):
+        interest_[t_] = par * r/n
         principle_[t_] = each_pay_ - interest_[t_]
         par -= principle_[t_]
 
