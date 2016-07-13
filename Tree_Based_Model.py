@@ -8,7 +8,7 @@ Modification log:
 7/7/2016 - Initiation of the script
 '''
 
-
+import itertools
 import pandas as pd
 import numpy as np
 import scipy as sp
@@ -19,43 +19,44 @@ import Duration_Convexity as dc
 
 class hoLeeTree:
     '''
+    7/11/2016 -- Finalized, changed T to N to avoid confusion
+
     the class will construct a simple Ho-Lee tree
     this could also be (possibly) generalized into BDT tree later..
     '''
-    def __init__(self, sig, T, dt = 1, q = 0.5):
+    def __init__(self, sig, N, dt = 1, q = 0.5):
         '''
         Initiation parameters -
         sig:    the constant volatility should be pre-defined
-        T:      total time of trees
+        N:      total length of trees
         dt:     each time step
         q:      the risk-neutual probability, assume to be 0.5 by default
         '''
         self.dt = dt
         self.q = q
         self.sig = sig
-        self.T = T
-        self.drifts = np.repeat(0.01, T) # just a place holder here...
+        self.N = N
+        self.drifts = np.repeat(0.01, N) # just a place holder here...
 
     def getDriftPrice( self, drifts ):
         '''
-        drifts: a Tx1 vector indicate the drift at each level of the tree
+        drifts: a Nx1 vector indicate the drift at each level of the tree
 
-        will return a Tx1 price ( assume par = 1) vector, using the given drifts
+        will return a Nx1 price ( assume par = 1) vector, using the given drifts
         '''
-
-        T = self.T
-        if (len(drifts) != T):
-            raise Exception("Tree size={}, while drift size={}".format(T, len(drifts)))
-
+        N = self.N
         sig = self.sig
         dt = self.dt
         q = self.q
 
-        prices_pred_ = np.zeros(T)
+        #length check
+        if (len(drifts) != N):
+            raise Exception("Tree size={}, while drift size={}".format(T, len(drifts)))
+
+        prices_pred_ = np.zeros(N)
 
 
-        # personally, I don't like loop, but I cound't find a better way here...
-        for (ind_, time_) in  enumerate(range(1, T + 1)): # time_ = 1, 2, 3, ..., T
+        for (ind_, time_) in  enumerate(range(1, N + 1)): # time_ = 1, 2, 3, ..., N
              # the last step, temp_price_ will be a 1xn+1 vector
             temp_price_ = np.repeat( 1, time_+1)
 
@@ -82,8 +83,8 @@ class hoLeeTree:
         method:         the optimization method of the cost function
         options:        used for minimize function
         '''
-        if (len(prices) != self.T):
-            raise Exception("Tree size={}, while prices size={}".format(T, len(prices)))
+        if (len(prices) != self.N):
+            raise Exception("Tree size={}, while prices size={}".format(self.N, len(prices)))
 
 
         getDriftPrice_wrapper = lambda x: ((self.getDriftPrice(x) - prices) ** 2).sum()
@@ -97,51 +98,51 @@ class hoLeeTree:
         '''
         generate a TxT upper-triangle matrix, representing the tree of the IR
         '''
-        tree_ = np.repeat(np.nan,self.T**2).reshape(self.T,self.T)
-        for t_ in range(self.T):
+        tree_ = np.repeat(np.nan,self.N**2).reshape(self.N,self.N)
+        for t_ in range(self.N):
             tree_[:t_ + 1, t_] = self.drifts[:t_ + 1].sum() + \
                         np.array([ (t_-2*x) * self.sig for x in range(t_ + 1)])
         self.IRtree = tree_
 
 class bdtTree:
     '''
+    7/11/2016 -- Finalized, changed T to N to avoid confusion
+
     the class will construct a BDT tree
     '''
-    def __init__(self, T, dt = 1, q = 0.5):
+    def __init__(self, N, dt = 1, q = 0.5):
         '''
         Initiation parameters -
-        T:      total time of trees
+        N:      total lengths of trees
         dt:     each time step
         q:      the risk-neutual probability, assume to be 0.5 by default
         '''
         self.dt = dt
         self.q = q
-        self.T = T
-        #self.para =  np.repeat(0.01, 2*T/dt-1)  # just a place holder here...
-        self.drifts = np.repeat(0.01, T/dt)
-        self.sigs = np.repeat(0, T/dt)
+        self.N = N
+        self.drifts = np.repeat(0.01, N)
+        self.sigs = np.repeat(0, N)
 
     def getDriftPrice( self, drifts ):
         '''
-        para: a (T+T-1)x1 vector indicate the drift&sig at each level of the tree
-        will return a Tx1 price ( assume par = 1) vector, using the given drifts
+        drifts: a Nx1 vector indicate the drift at each level of the tree
+        will return a Nx1 price ( assume par = 1) vector, using the given drifts
         '''
 
-        T = self.T
+        N = self.N
         dt = self.dt
-        if (len(drifts) != T/dt):
-            raise Exception("drifts size={},should be {}".format(len(drifts),T/dt))
-
-        #drifts = para[0:T/dt]
         sigs = self.sigs
         q = self.q
 
-        prices_pred_ = np.zeros(T/dt - 1)
+        if (len(drifts) != N):
+            raise Exception("drifts size={},should be {}".format(len(drifts),N))
+
+        prices_pred_ = np.zeros(N)
         # prices_pred_ = np.zeros(T/dt)
         #print("drifts size =", len(drifts))
         #print("sigs size=",len(sigs))
 
-        for (ind_, time_) in  enumerate(range(1, int(T/dt))): # time_ = 1, 2, 3, ..., T-1
+        for (ind_, time_) in  enumerate(range(1, N+1)): # time_ = 1, 2, 3, ..., N
             #print(ind_, time_)
             ## the last step, temp_price_ will be a 1xn+1 vector
             temp_price_ = np.repeat( 1, time_+1)
@@ -168,8 +169,8 @@ class bdtTree:
         method:         the optimization method of the cost function
         options:        used for minimize function
         '''
-        if (len(prices)+1 != self.T/self.dt):
-            raise Exception("Tree size={}, while prices size+1={}".format(self.T/self.dt, len(prices)+1 ))
+        #if (len(prices)+1 != self.N):
+        #    raise Exception("Tree size={}, while prices size+1={}".format(self.N, len(prices)+1 ))
 
         #if( len(drift_init) != len(self.drifts)):
         #    raise Exception("input drift size={}, should be {}".format(len(drift_init),len(self.drifts)))
@@ -178,29 +179,29 @@ class bdtTree:
         r0_ = fi.zToSpot(prices[0],self.dt,n=1./self.dt)
 
         getDriftPrice_wrapper = lambda x, r0=r0_: ((self.getDriftPrice( np.append(r0,x)) - prices) ** 2).sum()
-
+        getDriftPrice_wrapper1 = lambda x,: ((self.getDriftPrice( x - prices) ** 2).sum())
         results_  = minimize( getDriftPrice_wrapper, drift_init
                             , method = method, options = options)
-        #self.para = results_.x
         self.drifts = np.append(r0_,results_.x)
-        #self.sigs = np.append(0,self.para[self.T/self.dt:])
+        #self.drifts = results_.x
 
 
     def plotIRTree(self):
         '''
-        generate a T/dt x T/dt upper-triangle matrix, representing the tree of the IR
+        generate a N x N upper-triangle matrix, representing the tree of the IR
         '''
-
-        tree_ = np.repeat(np.nan,(self.T/self.dt)**2).reshape((self.T/self.dt),(self.T/self.dt))
-        for t_ in range(1, int(self.T/self.dt) + 1): #t_ = 1, 2,
+        N = self.N
+        tree_ = np.repeat(np.nan,N**2).reshape(N,N)
+        for t_ in range(1, N + 1): #t_ = 1, 2, ..., N
             tree_[:t_, t_-1] =  self.drifts[t_-1] * \
                 np.exp([ 2* x * self.dt**0.5 * self.sigs[t_-1] for x in range(0,-t_,-1)])
-                #np.exp([ 2* x * self.dt**0.5 * self.sigs[t_-1] for x in range(t_-1,-1,-1)])
 
         self.IRtree = tree_
 
 class hullWhiteTree:
     '''
+    7/11/2016 -- Finalized, changed T to N to avoid confusion
+
     the class will construct a HullWhite tree
     '''
     def __init__(self, N, K, sig, dt = 0.5):
@@ -268,7 +269,14 @@ class hullWhiteTree:
         for (ind_, time_) in  enumerate(range(1, N + 1)): # time_ = 1, 2, 3, ..., N
             #print(ind_, time_)
             ## the last step, temp_price_ will be a 1xn+1 vector
-            temp_price_ = np.repeat( 1., 2*j_max+1)
+            #print (time_)
+            if(time_ >= j_max):
+                temp_price_ = np.repeat( 1., 2*j_max+1)
+                reduce_ = 1
+            else:
+                temp_price_ = np.repeat( 1., 2*time_+1)
+                reduce_ = 5-time_+1
+
             ## trace back the tree until it hits the first period
             while( time_ > j_max): ## the case when still 2*j_max+1 nodes
                 new_price_ = np.repeat( 1., 2*j_max+1) ## initialization
@@ -278,15 +286,19 @@ class hullWhiteTree:
                     #print(i,2*j_max+1,temp_price_[i-1:i+2])
                     new_price_[i] = (q_table[i,:] * temp_price_[i-1:i+2]).sum()
 
-                temp_price_ = new_price_ * np.exp(-(drifts[:time_].sum()+ dr*np.arange(j_max,-j_max-1,-1))*dt)
+                #temp_price_ = new_price_ * np.exp(-(drifts[:time_].sum()+ dr*np.arange(j_max,-j_max-1,-1))*dt)
+                temp_price_ = new_price_ / np.exp(drifts[:time_].sum()+ dr*np.arange(j_max,-j_max-1,-1))
                 time_ -= 1
 
-            reduce_=1
+
             while( time_>0): ## now nodes decrease 2 per steps
+                #print ("\n",time_,temp_price_)
                 new_price_ = temp_price_[1:-1]
                 for (i,_) in enumerate(new_price_):
+                    #print(i, new_price_)
                     new_price_[i] = (q_table[reduce_+i,:] * temp_price_[i:i+3]).sum()
-                temp_price_ = new_price_ * np.exp(-(drifts[:time_].sum()+ dr*np.arange(j_max-reduce_,-j_max+reduce_-1,-1))*dt)
+                #temp_price_ = new_price_ * np.exp(-(drifts[:time_].sum()+ dr*np.arange(j_max-reduce_,-j_max+reduce_-1,-1))*dt)
+                temp_price_ = new_price_ / np.exp(drifts[:time_].sum()+ dr*np.arange(j_max-reduce_,-j_max+reduce_-1,-1))
                 reduce_ += 1
                 time_ -= 1
             ## append the results
@@ -309,18 +321,19 @@ class hullWhiteTree:
         '''
         if (len(prices) != self.N):
             raise Exception("Tree size={}, while prices size={}".format(self.N, len(prices)))
-        if( len(drift_init) != len(self.drifts)-1):
-            raise Exception("input drift size={}, should be {}".format(len(drift_init),len(self.drifts)-1))
+        #if( len(drift_init) != len(self.drifts)-1):
+        #    raise Exception("input drift size={}, should be {}".format(len(drift_init),len(self.drifts)-1))
 
-        r0_ = -np.log(prices[0])/self.dt
+        r0_ = -np.log(prices[0])
+        #r0_ = -np.log(prices[0])/self.dt
         ## a wrapper
-        getDriftPrice_wrapper = lambda x, r0 = r0_: ((self.getDriftPrice(np.append(r0_,x)) - prices) ** 2).sum()
-        #getDriftPrice_wrapper1 = lambda x, r0 = r0_: (self.getDriftPrice(x, r0 = r0_) - prices)[1:]
-        results_  = minimize( getDriftPrice_wrapper, drift_init
+        getDriftPrice_wrapper = lambda x, r0 = r0_: ((self.getDriftPrice(np.append(r0,x)) - prices) ** 2).sum()
+        getDriftPrice_wrapper1 = lambda x : ((self.getDriftPrice(x) - prices) ** 2).sum()
+        results_  = minimize( getDriftPrice_wrapper1, drift_init
                             , method = method, options = options)
 
-        self.drifts = np.append(r0_,results_.x)
-
+        #self.drifts = np.append(r0_,results_.x)
+        self.drifts = results_.x
 
 
     def plotIRTree(self):
@@ -356,7 +369,7 @@ def irTreeToPayoffTree( Tree, get_cash_flow, get_curr_price = lambda T, p: (p, F
     size = IRtree
 
     Parameters --
-    Tree:           an interest rate Tree object
+    Tree:           an interest rate Tree object, size of IR tree should be NxN
     get_cash_flow:  a function that return the cashflow at a specifc time T
     get_curr_price: a function that take two parameters (T, curr_price),
                     and decide the actual current price (incorprate early exercise).
@@ -368,23 +381,24 @@ def irTreeToPayoffTree( Tree, get_cash_flow, get_curr_price = lambda T, p: (p, F
         IRTree = Tree.IRtree
         dt = Tree.dt
         q = Tree.q
-        T = Tree.T
-        T_eff = int(T/dt) ## e.g. T=10, dt =0.5, T_eff =20
+        N = Tree.N
+        #T_eff =  ## e.g. T=10, dt =0.5, T_eff =20
     except:
         raise Exception('The Tree object provided is not valid.')
 
     ## check tree size
-    if (IRTree.shape != (T_eff, T_eff)):
+    if (IRTree.shape != (N, N)):
         raise Exception('Invalid IRTree size={}'.format(IRTree.shape))
 
-    payoff_tree_ = np.repeat(np.NAN, T_eff**2).reshape(T_eff, T_eff) ## Initiation
-    decision_tree_ =  np.repeat(np.NAN, T_eff**2).reshape(T_eff, T_eff)
+
+    payoff_tree_ = np.repeat(np.NAN, N**2).reshape(N, N) ## Initiation
+    decision_tree_ =  np.repeat(np.NAN, N**2).reshape(N, N)
+
     ## The last Column case is a bit special:
+    europrice_ = get_cash_flow((N-1)*dt) / (1+IRTree[:,N-1]*dt)
+    (payoff_tree_[:,N-1], decision_tree_[:,N-1]) = get_curr_price((N-1)*dt, europrice_)
 
-    europrice_ = get_cash_flow((T_eff-1)*dt) / (1+IRTree[:,T_eff-1]*dt)
-    (payoff_tree_[:,T_eff-1], decision_tree_[:,T_eff-1]) = get_curr_price((T_eff-1)*dt, europrice_)
-
-    for t_ in range( T_eff-2, -1, -1): ## t_ = T_eff-2, T_eff-3, .., 0
+    for t_ in range( N-2, -1, -1): ## t_ = N-2, N-3, .., 0
         #print(t_)
         europrice_ = (get_cash_flow(t_*dt) + q * payoff_tree_[:t_+1, t_+1] \
                 + (1-q) * payoff_tree_[1:t_+2, t_+1] )\
@@ -394,6 +408,92 @@ def irTreeToPayoffTree( Tree, get_cash_flow, get_curr_price = lambda T, p: (p, F
 
     return ( payoff_tree_, decision_tree_ )
 
+def mbsGetPrepayRate(curr_rate,interest_rate):
+    '''
+    Linear interpolation of the prepayment rate
+
+    if curr_rate - interest rate <= 0  --- 3%
+    if curr_rate - interest rate in [0,50bp] --- 3% to 5%
+    if curr_rate - interest rate in [50bp,100bp] --- 5% to 8%
+    if curr_rate - interest rate in [100bp,200bp] --- 8% to 17%
+    '''
+    x_ = curr_rate - interest_rate
+
+    if (np.isnan(x_)):
+        return np.nan
+    elif ( x_ <= 0):
+        return 0.03
+    elif ( x_ <= 0.005):
+        return 0.03 + (x_- 0)/(0.005)* 0.02
+    elif (x_ <=0.01):
+        return 0.05 + (x_-0.005)/0.005* 0.03
+    elif (x_ <= 0.02):
+        return 0.08 + (x_-0.01)/0.01 * 0.09
+    else:
+        return 0.17
+
+def mbsPricer(path_array, HWT, MBS_interest, init_par = 1000000, \
+                get_prepay_rate = lambda curr_rate,interest_rate: 0):
+    '''
+    Parameters:
+    path_array: arrays of -1, 0, 1's, should be with length N-1 (as the first point is fixed,
+                no need to randomize)
+    HWT:        a HullWhite tree
+    MBS_interest:   the corresponding rate of MBS, with the same discounting measure as in HWT.IRtree
+    init_par:   initial par value of the MBS
+    get_prepay_rate: lambda curr_rate,interest_rate: 0 (i.e, by default, no prepayment allowed)
+    '''
+    N = len(path_array)+1
+    IRTree = HWT.IRtree[:,:N+1] ## only need the first N columns in this case
+    j_max = HWT.j_max
+    location_array_ = np.repeat(j_max,N) ## initialized the array
+    q_table = HWT.q_table
+
+    for (i,j) in enumerate(path_array):
+        if location_array_[i] == 2*j_max:
+            location_array_[i+1] = location_array_[i] + j-1
+        elif location_array_[i] == 0:
+            location_array_[i+1] = location_array_[i] + j+1
+        else:
+            location_array_[i+1] = location_array_[i] + j
+
+    ## discout array given path Nx1
+    discount_array_ = np.array([ IRTree[j,i] for (i,j) in enumerate(location_array_)])
+    ## prepayrate array given path Nx1
+    prepayrate_array_ = np.array([ get_prepay_rate(discount_array_[i], MBS_interest) \
+                                  for (i,j) in enumerate(location_array_)])
+    ## probability array given path (N-1)x1
+    #print(location_array_)
+    prob_path_ = np.array([ q_table[location_array_[i],j+1] for (i,j) in enumerate(path_array)] )
+    ## total probability of array of realization
+    total_prob_ = np.prod(prob_path_)
+
+    ## we assume the prepayment is from t=0,..,4.5, and annuity payment is from t=0.5,...5
+    dt=HWT.dt
+    prepayment = np.zeros(N+1)
+    annuity_payment = np.zeros(N+1)
+    principle_payment = np.zeros(N+1)
+
+    total_payment = np.zeros(N+1) ## from t=0,...,5
+    curr_par = init_par
+
+
+    for i in range(10):
+        if i == 0:
+            prepayment[0] = 0
+        else:
+            prepayment[i] = curr_par*prepayrate_array_[i] ## this is paid at year i*dt, e.g., 0, 0.5, 1,..,4.5
+
+        curr_par -= prepayment[i] ## we deduct out prepayment from the par
+        annuity_payment[i+1] = fi.calAnnuityPayment(5-i*dt, 0.0575, n =2, par= curr_par)[0]
+        principle_payment[i+1] = fi.calAnnuityPayment(5-i*dt, 0.0575, n =2, par= curr_par)[1][0]
+        curr_par -= principle_payment[i+1] ## then we deduct how much principle we are about to pay next period
+        #print(curr_par, prepayment[i])
+
+    total_payment =  prepayment + annuity_payment
+    ## now let's put the sum together with discount
+    sum_total_payment = total_payment[0]+(total_payment[1:]/np.exp(np.cumsum(discount_array_))).sum()
+    return [sum_total_payment, total_prob_]
 
 def calSpotRateDuration( IRTree, PayoffTree, i=0,j=0 ):
     '''
@@ -414,3 +514,31 @@ def calIRDelta( IRTree, PayoffTree, i=0,j=0 ):
 
     return (PayoffTree[i,j+1]-PayoffTree[i+1,j+1])/\
             (IRTree[i,j+1]-IRTree[i+1,j+1])
+
+def path_gen(length = 9, vals = np.array([-1,0,1]), random = False, path = 1000\
+            , antithetic = False):
+    '''
+    Path generator:
+
+    length:   length of the array size
+    vals:     possible values of each path element
+    random:   if = F, will return all possible paths
+    path:     when random = T, generate that many paths
+    antithetic: will return antithetic paths as well (2*path paths), assume array is symmetric...
+    '''
+    val_size_ = len(vals)
+
+    assert (val_size_ and length and path), "you don't want any paths!?"
+
+    if(not random):
+        ## this gives all possibility of path combinations at each step...
+        return (np.array(list(itertools.product(vals,repeat=length))))
+
+    ## this gives path x length matrix
+    random_samples_ = np.array([[vals[int(i)] for i in np.floor(np.random.rand(length)*val_size_)]\
+            for x in range(path)])
+
+    if(not antithetic) : ## random, not antithetic
+        return random_samples_
+    else: ## random, antithetic
+        return np.concatenate((random_samples_, -random_samples_), axis=0)## lazy evaluation...
