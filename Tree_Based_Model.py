@@ -137,12 +137,12 @@ class bdtTree:
         if (len(drifts) != N):
             raise Exception("drifts size={},should be {}".format(len(drifts),N))
 
-        prices_pred_ = np.zeros(N - 1)
+        prices_pred_ = np.zeros(N)
         # prices_pred_ = np.zeros(T/dt)
         #print("drifts size =", len(drifts))
         #print("sigs size=",len(sigs))
 
-        for (ind_, time_) in  enumerate(range(1, N)): # time_ = 1, 2, 3, ..., N-1
+        for (ind_, time_) in  enumerate(range(1, N+1)): # time_ = 1, 2, 3, ..., N
             #print(ind_, time_)
             ## the last step, temp_price_ will be a 1xn+1 vector
             temp_price_ = np.repeat( 1, time_+1)
@@ -398,7 +398,7 @@ def irTreeToPayoffTree( Tree, get_cash_flow, get_curr_price = lambda T, p: (p, F
     europrice_ = get_cash_flow((N-1)*dt) / (1+IRTree[:,N-1]*dt)
     (payoff_tree_[:,N-1], decision_tree_[:,N-1]) = get_curr_price((N-1)*dt, europrice_)
 
-    for t_ in range( N-2, -1, -1): ## t_ = T_eff-2, T_eff-3, .., 0
+    for t_ in range( N-2, -1, -1): ## t_ = N-2, N-3, .., 0
         #print(t_)
         europrice_ = (get_cash_flow(t_*dt) + q * payoff_tree_[:t_+1, t_+1] \
                 + (1-q) * payoff_tree_[1:t_+2, t_+1] )\
@@ -432,7 +432,8 @@ def mbsGetPrepayRate(curr_rate,interest_rate):
     else:
         return 0.17
 
-def mbsPricer(path_array, HWT, MBS_interest, init_par = 1000000, get_prepay_rate = lambda curr_rate,interest_rate: 0):
+def mbsPricer(path_array, HWT, MBS_interest, init_par = 1000000, \
+                get_prepay_rate = lambda curr_rate,interest_rate: 0):
     '''
     Parameters:
     path_array: arrays of -1, 0, 1's, should be with length N-1 (as the first point is fixed,
@@ -478,7 +479,11 @@ def mbsPricer(path_array, HWT, MBS_interest, init_par = 1000000, get_prepay_rate
 
 
     for i in range(10):
-        prepayment[i] = curr_par*prepayrate_array_[i] ## this is paid at year i*dt, e.g., 0, 0.5, 1,..,4.5
+        if i == 0:
+            prepayment[0] = 0
+        else:
+            prepayment[i] = curr_par*prepayrate_array_[i] ## this is paid at year i*dt, e.g., 0, 0.5, 1,..,4.5
+
         curr_par -= prepayment[i] ## we deduct out prepayment from the par
         annuity_payment[i+1] = fi.calAnnuityPayment(5-i*dt, 0.0575, n =2, par= curr_par)[0]
         principle_payment[i+1] = fi.calAnnuityPayment(5-i*dt, 0.0575, n =2, par= curr_par)[1][0]
@@ -526,8 +531,10 @@ def path_gen(length = 9, vals = np.array([-1,0,1]), random = False, path = 1000\
     assert (val_size_ and length and path), "you don't want any paths!?"
 
     if(not random):
+        ## this gives all possibility of path combinations at each step...
         return (np.array(list(itertools.product(vals,repeat=length))))
 
+    ## this gives path x length matrix
     random_samples_ = np.array([[vals[int(i)] for i in np.floor(np.random.rand(length)*val_size_)]\
             for x in range(path)])
 
