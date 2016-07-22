@@ -432,7 +432,7 @@ def mbsGetPrepayRate(curr_rate,interest_rate):
     else:
         return 0.17
 
-def mbsPricer(path_array, HWT, MBS_interest, init_par = 1000000, \
+def mbsPricer(path_array, HWT, MBS_quote_rate, init_par = 1000000, \
                 get_prepay_rate = lambda curr_rate,interest_rate: 0):
     '''
     Parameters:
@@ -443,6 +443,8 @@ def mbsPricer(path_array, HWT, MBS_interest, init_par = 1000000, \
     init_par:   initial par value of the MBS
     get_prepay_rate: lambda curr_rate,interest_rate: 0 (i.e, by default, no prepayment allowed)
     '''
+
+    MBS_interest = np.log(1+MBS_quote_rate/2)
     N = len(path_array)+1
     IRTree = HWT.IRtree[:,:N+1] ## only need the first N columns in this case
     j_max = HWT.j_max
@@ -462,6 +464,8 @@ def mbsPricer(path_array, HWT, MBS_interest, init_par = 1000000, \
     ## prepayrate array given path Nx1
     prepayrate_array_ = np.array([ get_prepay_rate(discount_array_[i], MBS_interest) \
                                   for (i,j) in enumerate(location_array_)])
+    prepayrate_array_[0] = 0 ## no prepayment at time 0
+
     ## probability array given path (N-1)x1
     #print(location_array_)
     prob_path_ = np.array([ q_table[location_array_[i],j+1] for (i,j) in enumerate(path_array)] )
@@ -478,21 +482,19 @@ def mbsPricer(path_array, HWT, MBS_interest, init_par = 1000000, \
     curr_par = init_par
 
 
-    for i in range(10):
-        if i == 0:
-            prepayment[0] = 0
-        else:
-            prepayment[i] = curr_par*prepayrate_array_[i] ## this is paid at year i*dt, e.g., 0, 0.5, 1,..,4.5
+    for i in range(N):
+        prepayment[i] = curr_par*prepayrate_array_[i] ## this is paid at year i*dt, e.g., 0, 0.5, 1,..,4.5
 
         curr_par -= prepayment[i] ## we deduct out prepayment from the par
-        annuity_payment[i+1] = fi.calAnnuityPayment(5-i*dt, 0.0575, n =2, par= curr_par)[0]
-        principle_payment[i+1] = fi.calAnnuityPayment(5-i*dt, 0.0575, n =2, par= curr_par)[1][0]
+        (temp1_, temp2_, _) = fi.calAnnuityPayment(5-i*dt, MBS_quote_rate, n =2, par= curr_par)
+        annuity_payment[i+1] = temp1_
+        principle_payment[i+1] = temp2_[0]
         curr_par -= principle_payment[i+1] ## then we deduct how much principle we are about to pay next period
         #print(curr_par, prepayment[i])
 
     total_payment =  prepayment + annuity_payment
     ## now let's put the sum together with discount
-    sum_total_payment = total_payment[0]+(total_payment[1:]/np.exp(np.cumsum(discount_array_))).sum()
+    sum_total_payment = (total_payment[1:]/np.exp(np.cumsum(discount_array_))).sum()
     return [sum_total_payment, total_prob_]
 
 def calSpotRateDuration( IRTree, PayoffTree, i=0,j=0 ):
@@ -530,13 +532,17 @@ def path_gen(length = 9, vals = np.array([-1,0,1]), random = False, path = 1000\
 
     assert (val_size_ and length and path), "you don't want any paths!?"
 
+    all_path = np.array(list(itertools.product(vals,repeat=length)))
+
     if(not random):
         ## this gives all possibility of path combinations at each step...
-        return (np.array(list(itertools.product(vals,repeat=length))))
+        return all_path
 
     ## this gives path x length matrix
-    random_samples_ = np.array([[vals[int(i)] for i in np.floor(np.random.rand(length)*val_size_)]\
-            for x in range(path)])
+    #random_samples_ = np.array([[vals[int(i)] for i in np.floor(np.random.rand(length)*val_size_)]\
+    #        for x in range(path)])
+    random_samples_ = np.array([all_path[np.random.randint(0,val_size_**length)] for x in range(path)])
+
 
     if(not antithetic) : ## random, not antithetic
         return random_samples_

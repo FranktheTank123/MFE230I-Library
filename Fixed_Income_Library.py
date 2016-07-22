@@ -177,13 +177,20 @@ def getParRate (T, getZ, freq, t = 0, T_fwd = 0 ):
     getZ is a function that return the discount rate when pass in a maturity date.
     getParRate can also calculate the Par yield T_fwd-year forward
     '''
+    if (type(T)==int or type(T)== float):
+        T = np.array([T])
+
+
     n = np.ceil( np.multiply(freq ,T- T_fwd) - t ) # how may coupon payment do we pay
                                                    # we use the ceiling function to make sure the coupon
                                                    # is always paid at T
     n[ n < 0 ] = 0
 
     coupon_date = [ x[0] - (np.arange(1, x[1]+1)-1)/2.0 for x in zip(T, n)]
-    return freq * (1 - getZ(T)/getZ(np.array([T_fwd]))) / [(getZ(x)/getZ(np.array([T_fwd]))).sum() for x in coupon_date]
+
+    #print(n, coupon_date)
+    return freq * (1 - getZ(T)/getZ(np.array([T_fwd]))) / \
+            [(getZ(x)/getZ(np.array([T_fwd]))).sum() for x in coupon_date]
 
 
 class OLS:
