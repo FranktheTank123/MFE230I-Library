@@ -114,23 +114,9 @@ def euroBondOptionPricer(t, T, c, r_0, kappa, mu,sig, getZ_, par = 100, dt = 0.5
     ## get the call price of each sub ZCB
     call_prices_ = np.array([vasicekZCBOption(T_B,t, CF, K, r_0, mu, kappa, sig, getZ_) \
                              for (K, T_B, CF) in zip(strike_prices_, pay_time_+t, cash_flow_)])
-
-    ## DIY dz/dr
-    Z_numerical_dr = lambda r,t:(getZ_(r*(1+bump),t)-getZ_(r*(1-bump),t))/(2*bump*r)
-
-    ## DIY dc/dr
-    call_numerical_dr = lambda r, K, T_B, CF: (vasicekZCBOption(T_B,t, CF, K, r*(1+bump), mu, kappa, sig,getZ_) - \
-                                 vasicekZCBOption(T_B,t, CF, K, r*(1-bump), mu, kappa, sig,getZ_))/(2*bump * r)
-
-    ## get the deltas...
-    call_deltas_ = np.array([call_numerical_dr(r_0, K, T_B, CF) \
-                             for (K, T_B, CF) in zip(strike_prices_, pay_time_+t, cash_flow_)])
-
-    ZCB_deltas_ = np.array([Z_numerical_dr(r_0,t) * c for (c, t) in zip(cash_flow_, pay_time_)])
-
     ## return the entire call bond price, also the sub ZCB calls, all sub call deltas, and all ZCB deltas
-    return (call_prices_.sum(),call_prices_, call_deltas_, ZCB_deltas_)
-
+    #return (call_prices_.sum(),call_prices_, call_deltas_, ZCB_deltas_)
+    return call_prices_.sum()
 
 def markovChain(dt, n):
     tran_mat_ = np.array([[1-0.1*dt, 0.1*dt, 0],[0, 1-0.2*dt, 0.2*dt],[0.5*dt,0, 1-0.5*dt]])

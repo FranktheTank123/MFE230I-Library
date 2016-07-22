@@ -192,6 +192,16 @@ def getParRate (T, getZ, freq, t = 0, T_fwd = 0 ):
     return freq * (1 - getZ(T)/getZ(np.array([T_fwd]))) / \
             [(getZ(x)/getZ(np.array([T_fwd]))).sum() for x in coupon_date]
 
+def getCBPrice( T, c, getZ, freq = 2, par = 100):
+    '''
+    get the price of a coupon bond, assume t=0
+    c is the coupon rate
+    '''
+    coupon_date = np.arange(0,T+1./freq,1./freq)
+    cash_flow = np.repeat(c*par/freq, len(coupon_date))
+    cash_flow[-1] += par
+
+    return (getZ(coupon_date)*cash_flow).sum()
 
 class OLS:
     '''
