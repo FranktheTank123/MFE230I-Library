@@ -197,11 +197,13 @@ def getCBPrice( T, c, getZ, freq = 2, par = 100):
     get the price of a coupon bond, assume t=0
     c is the coupon rate
     '''
-    coupon_date = np.arange(0,T+1./freq,1./freq)
+    coupon_date = np.linspace(1./freq,T,T*freq) ## e.g. [0.5,1,...,T-0.5,T]
+    #print(coupon_date)
     cash_flow = np.repeat(c*par/freq, len(coupon_date))
     cash_flow[-1] += par
 
     return (getZ(coupon_date)*cash_flow).sum()
+
 
 class OLS:
     '''
