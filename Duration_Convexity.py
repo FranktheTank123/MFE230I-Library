@@ -7,12 +7,11 @@ Modification log:
 
 6/18/2016 - wrapping up the classes
 
-6/17/2016 - Initiation of the script. I think it would be benefitial to have a bond
-class to deal with different features OOP seems to be helpful in this case
+6/17/2016 - Initiation of the script. I think it would be benefitial to have a
+bond class to deal with different features OOP seems to be helpful in this case
 
 '''
 
-import pandas as pd
 import numpy as np
 import scipy as sp
 import Fixed_Income_Library as fi

@@ -54,11 +54,11 @@ def hullWhiteMC(theta, kappa, sig, rt, T, z, t = 0):
 
     dt_ = (T-t)/len(z)
 
-    time_stpes_ = np.linspace(t,T,len(z)+1) ## time space
-    r_s_ = np.repeat(rt, len(z)+1)          ## r_t space
+    time_stpes_ = np.linspace(t, T, len(z)+1)  # time space
+    r_s_ = np.repeat(rt, len(z)+1)             # r_t space
 
     for i, z_i in enumerate(z):
         r_s_[i+1] = r_s_[i]+(theta(time_stpes_[i+1])-kappa*r_s_[i])\
                     * dt_ + sig*dt_**0.5 * z_i
-    #print(dt_,time_stpes_)
+    # print(dt_,time_stpes_)
     return r_s_
